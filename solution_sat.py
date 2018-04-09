@@ -6,6 +6,8 @@
 
 
 import sys
+from satispy import Variable, Cnf 
+from satispy.solver import Minisat
  
 # read input files as byte arrays
 plaintext = bytearray(open('./in/bis.txt', 'rb').read())
@@ -30,35 +32,33 @@ N_B = 32
 N = 8 * N_B
 
 
-def getNext(currBit, i1, i2):
-    if currBit == 0:
-        if i1 == i2 == 0:
-            return 0
-        else:
-            return 1
-    else:
-        if i1 == i2 == 0:
-            return 1
-        else:
-            return 0
-
-
-def arrayToInt(x):
+def arrayToInt(solution, variables):
     intFromArray = 0
-    for idx in range(len(x)):
-        if idx != 0 and idx != len(x) - 1:
-            intFromArray |= x[idx] << (N - idx)
+    for idx in range(N):
+        if solution[variables[(idx + 1) % N]] == True:
+            intFromArray |= 1 << idx
+        else:
+            intFromArray |= 0 << idx            
     return intFromArray
 
 
 def reversedStep(x):
-    for seq in [[0, 0], [0, 1], [1, 0], [1, 1]]:
-        keyArray = seq
-        for i in range(N):
-            currBit = (x >> (N - i - 1)) & 1
-            keyArray.append(getNext(currBit, keyArray[i + 1], keyArray[i]))
-        if (keyArray[0] == keyArray[N] and keyArray[1] == keyArray[N + 1]):
-            return arrayToInt(keyArray)
+    variables = []
+    for i in range(N):
+        variables.append(Variable(str(i)))
+
+    exp = Variable('None')
+
+    for i in range(N):
+        if (x >> i) & 1:
+            exp &= (variables[i] & -variables[(i + 1) % N] & -variables[(i + 2) % N]) | (-variables[i] & variables[(i + 1) % N]) | (-variables[i] & variables[(i + 2) % N])
+        else:
+            exp &= (-variables[i] & -variables[(i + 1) % N] & -variables[(i + 2) % N]) | (variables[i] & variables[(i + 1) % N]) | (variables[i] & variables[(i + 2) % N])
+
+    solver = Minisat()
+    solution = solver.solve(exp)
+    if solution.success:
+        return arrayToInt(solution, variables)
 
 
 # Keystream init
